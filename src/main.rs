@@ -51,7 +51,6 @@ pub struct Explorer {
     image_paths : Vec<PathBuf>,
     image_index : Cell<usize>, // use this so we can mutate it later
     accept_count : Cell<usize>,
-    output_path : PathBuf,
     image_buffer : RefCell<Vec<Vec<f32>>>
 }
 
@@ -182,7 +181,7 @@ pub fn copy_buffer(in_buff : &Vec<Vec<f32>>, out_buff : &mut Vec<Vec<f32>>) {
 // Our chooser struct/class implementation. Mostly just runs the GTK
 // and keeps a hold on our models.
 impl Explorer {
-    pub fn new(image_paths : Vec<PathBuf>, output_path : PathBuf) -> Rc<Self> {
+    pub fn new(image_paths : Vec<PathBuf>) -> Rc<Self> {
         let app = Application::new(
             Some("com.github.gtk-rs.examples.basic"),
             Default::default(),
@@ -207,7 +206,6 @@ impl Explorer {
             image_paths,
             image_index,
             accept_count,
-            output_path,
             image_buffer
         });
 
@@ -279,8 +277,8 @@ fn main() {
 
     let mut image_files : Vec<PathBuf> = vec!();
     
-    if args.len() < 3 {
-        println!("Usage: explorer <path to directory of tiff files> <output dir>"); 
+    if args.len() < 2 {
+        println!("Usage: explorer <path to directory of tiff / fits files>"); 
         process::exit(1);
     }
 
@@ -310,6 +308,6 @@ fn main() {
     }
 
     gtk::init().expect("Unable to start GTK3");
-    let app = Explorer::new(image_files, PathBuf::from(&args[2]));
+    let app = Explorer::new(image_files);
     app.run(app.clone());
 }
