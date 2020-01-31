@@ -54,11 +54,64 @@ pub struct Explorer {
     image_buffer : RefCell<Vec<Vec<f32>>>
 }
 
+
+fn get_image_fits(path : &Path ) -> gtk::Image {
+
+    let fits = Fits::open(path).expect("Failed to open fits.");
+    // Iterate over HDUs
+    for hdu in fits.iter() {
+        println!("{:?}", hdu.value("EXTNAME"));
+        println!("{:?}", hdu.read_data());
+    }
+
+    // Our buffer - we sum all the image here and then scale
+    let mut img_buffer : Vec<Vec<f32>> = vec![];
+    for y in 0..HEIGHT {
+        let mut row  : Vec<f32> = vec![];
+        for x in 0..WIDTH {
+            row.push(0 as f32);
+        }
+        img_buffer.push(row);
+    }
+
+     // Final buffer that we use that is a little smaller - u8
+    // and not u16, but also RGB, just to make GTK happy.
+    let mut final_buffer : Vec<u8> = vec![];
+    for y in 0..HEIGHT {
+        let mut row  : Vec<u8> = vec![];
+        for x in 0..WIDTH {
+            // GTK insists we have RGB so we triple everything :/
+            for _ in 0..3 {
+                final_buffer.push(0 as u8);
+            }
+        }
+    }
+   
+    
+
+    let b = Bytes::from(&final_buffer);
+
+    let pixybuf = Pixbuf::new_from_bytes(&b,
+        Colorspace::Rgb,
+        false, 
+        8,
+        WIDTH as i32,
+        HEIGHT as i32,
+        (WIDTH * 3 * 1) as i32
+    );
+
+    let image : gtk::Image = gtk::Image::new_from_pixbuf(Some(&pixybuf));
+    return image;
+
+}
+
+
 // Convert our model into a gtk::Image that we can present to
 // the screen.
 
-fn get_image(path : &Path) -> (gtk::Image, Vec<Vec<f32>>) {
+fn get_image_tiff(path : &Path) -> gtk::Image {
     let img_file = File::open(path).expect("Cannot find test image!");
+
     let mut decoder = Decoder::new(img_file).expect("Cannot create decoder");
 
     assert_eq!(decoder.colortype().unwrap(), ColorType::Gray(16));
@@ -75,6 +128,7 @@ fn get_image(path : &Path) -> (gtk::Image, Vec<Vec<f32>>) {
         }
         img_buffer.push(row);
     }
+    
 
     // Final buffer that we use that is a little smaller - u8
     // and not u16, but also RGB, just to make GTK happy.
@@ -89,6 +143,7 @@ fn get_image(path : &Path) -> (gtk::Image, Vec<Vec<f32>>) {
         }
     }
    
+    
     // Now we've decoded, lets update the img_buffer
     if let DecodingResult::U16(img_res) = img_res {
         let mut levels : usize = 0;
@@ -158,14 +213,14 @@ fn get_image(path : &Path) -> (gtk::Image, Vec<Vec<f32>>) {
         );
 
         let image : gtk::Image = gtk::Image::new_from_pixbuf(Some(&pixybuf));
-        return (image, img_buffer);
+        return image;
 
     } else {
         panic!("Wrong data type");
     }
 
     let image: gtk::Image = gtk::Image::new();
-    (image, img_buffer)
+    image
 }
 
 
@@ -218,14 +273,14 @@ impl Explorer {
  
         self.app.connect_activate( move |gtkapp| {
             let window = ApplicationWindow::new(gtkapp);
-            window.set_title("Dora Explorer");
+            window.set_title("FEX");
             window.set_default_size(350, 350);
             let vbox = gtk::Box::new(gtk::Orientation::Vertical, 3);
             let ibox = gtk::Box::new(gtk::Orientation::Horizontal, 1);
             let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 3);
-            let (image, buffer) = get_image(&(app.image_paths[0]));
-            copy_buffer(&buffer, &mut app.image_buffer.borrow_mut());
-
+                        
+            let image = get_image_fits(&(app.image_paths[0]));
+            
             ibox.add(&image);
             vbox.add(&ibox);
             vbox.add(&hbox);
@@ -253,8 +308,7 @@ impl Explorer {
                 let ibox_ref = ibox_accept.lock().unwrap();
                 let children : Vec<gtk::Widget> = (*ibox_ref).get_children();
                 app_accept.image_index.set(mi + 1);
-                let (image, buffer) = get_image(&(app_accept.image_paths[mi + 1]));
-                copy_buffer(&buffer, &mut app_accept.image_buffer.borrow_mut());
+                let image = get_image_fits(&(app_accept.image_paths[mi + 1]));
 
                 (*ibox_ref).remove(&children[0]);
                 (*ibox_ref).add(&image);
