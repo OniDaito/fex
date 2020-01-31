@@ -34,11 +34,11 @@ use std::{cell::Cell, rc::Rc, cell::RefCell};
 use tiff::decoder::{ifd, Decoder, DecodingResult};
 use tiff::ColorType;
 use std::process;
-use fitrs::{Fits, Hdu};
 use scoped_threadpool::Pool;
 use std::sync::mpsc::channel;
 use pbr::ProgressBar;
 use gtk::{Application, ApplicationWindow, Button};
+use fitrs::{Fits, Hdu, FitsData, FitsDataArray};
 
 static WIDTH : u32 = 128;
 static HEIGHT : u32 = 128;
@@ -57,13 +57,6 @@ pub struct Explorer {
 
 fn get_image_fits(path : &Path ) -> gtk::Image {
 
-    let fits = Fits::open(path).expect("Failed to open fits.");
-    // Iterate over HDUs
-    for hdu in fits.iter() {
-        println!("{:?}", hdu.value("EXTNAME"));
-        println!("{:?}", hdu.read_data());
-    }
-
     // Our buffer - we sum all the image here and then scale
     let mut img_buffer : Vec<Vec<f32>> = vec![];
     for y in 0..HEIGHT {
@@ -74,7 +67,34 @@ fn get_image_fits(path : &Path ) -> gtk::Image {
         img_buffer.push(row);
     }
 
-     // Final buffer that we use that is a little smaller - u8
+
+    let fits = Fits::open(path).expect("Failed to open fits.");
+    // Iterate over HDUs
+    for hdu in fits.iter() {
+        println!("{:?}", hdu.value("EXTNAME"));
+        //println!("{:?}", hdu.read_data());
+    }
+    // Assume first hdu is the one we want. Won't be always
+
+    // Get HDU by ID
+    let hdu_0 = fits.get(0).unwrap();
+    // Get HDU by EXTNAME
+
+    match hdu_0.read_data() {
+        FitsData::FloatingPoint32(FitsDataArray { shape, data }) => {
+            // Assume 128x128 naughty!
+            for y in 0..HEIGHT as usize {
+                for x in 0..WIDTH as usize {
+                    img_buffer[y][x] = (data[y * (HEIGHT as usize) + x] as f32);
+                }
+            }
+
+        }
+        _ => { /* ... */ }
+    }
+    
+
+    // Final buffer that we use that is a little smaller - u8
     // and not u16, but also RGB, just to make GTK happy.
     let mut final_buffer : Vec<u8> = vec![];
     for y in 0..HEIGHT {
@@ -86,6 +106,26 @@ fn get_image_fits(path : &Path ) -> gtk::Image {
             }
         }
     }
+
+       // Find min/max
+       let mut minp : f32 = 1e12; // we might end up overflowing!
+       let mut maxp : f32 = 0.0;
+       for y in 0..HEIGHT as usize {
+           for x in 0..WIDTH as usize {
+               if (img_buffer[y][x] as f32) > maxp { maxp = img_buffer[y][x] as f32; }
+               if (img_buffer[y][x] as f32) < minp { minp = img_buffer[y][x] as f32; }
+           }
+       }
+
+       for y in 0..HEIGHT as usize {
+           for x in 0..WIDTH as usize {
+               let colour = (img_buffer[y][x] / maxp * 255.0) as u8;
+               let idx = (y * (HEIGHT as usize) + x) * 3;
+               final_buffer[idx] = colour;
+               final_buffer[idx+1] = colour;
+               final_buffer[idx+2] = colour;
+           }
+       } 
    
     
 
