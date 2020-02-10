@@ -39,7 +39,7 @@ use std::process;
 use scoped_threadpool::Pool;
 use std::sync::mpsc::channel;
 use pbr::ProgressBar;
-use gtk::{Application, ApplicationWindow, Button};
+use gtk::{Application, ApplicationWindow, Button, Label};
 use fitrs::{Fits, Hdu, FitsData, FitsDataArray};
 
 static WIDTH : u32 = 128;
@@ -344,6 +344,9 @@ impl Explorer {
             let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 3);
             let (image, width, height) = get_image(&(app.image_paths[0]));
             ibox.add(&image);
+            let dimstr = format!("width/height: {}x{}", width, height); 
+            let label = Label::new(Some(&dimstr));
+            dbox.add(&label);
             ibox.add(&dbox);
             vbox.add(&ibox);
             vbox.add(&hbox);
@@ -373,11 +376,17 @@ impl Explorer {
                 // Now move on to the next image
                 let ibox_ref = ibox_accept.lock().unwrap();
                 let children : Vec<gtk::Widget> = (*ibox_ref).get_children();
-                
                 let (image, width, height) = get_image(&(app_accept.image_paths[mi + 1]));
-                (*ibox_ref).remove(&children[0]);
+                for i in 0..children.len() {
+                    (*ibox_ref).remove(&children[i]);
+                }
+
+                let dbox = gtk::Box::new(gtk::Orientation::Vertical, 3);
+                let dimstr = format!("width/height: {}x{}", width, height); 
+                let label = Label::new(Some(&dimstr));
+                dbox.add(&label);
                 (*ibox_ref).add(&image);
-                let widget = (*ibox_ref).get_parent().unwrap();
+                (*ibox_ref).add(&dbox);
                 let mut title: String = "FEX: ".to_owned();
                 let opath: String = app_accept.image_paths[0].to_str().unwrap().to_string();
                 title.push_str(&opath);
