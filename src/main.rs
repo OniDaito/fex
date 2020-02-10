@@ -354,6 +354,7 @@ impl Explorer {
             let ibox_arc = Arc::new(Mutex::new(ibox));
             let ibox_accept = ibox_arc.clone();
             let mut app_accept = app.clone();
+            let mut win_accept = window.clone();
 
             let mut i : i32 = 0;
             let button_click = || { i + 1 };
@@ -373,17 +374,15 @@ impl Explorer {
                 let ibox_ref = ibox_accept.lock().unwrap();
                 let children : Vec<gtk::Widget> = (*ibox_ref).get_children();
                 
-                let (image, width, height) = get_image(&(app_accept.image_paths[mi]));
+                let (image, width, height) = get_image(&(app_accept.image_paths[mi + 1]));
                 (*ibox_ref).remove(&children[0]);
                 (*ibox_ref).add(&image);
                 let widget = (*ibox_ref).get_parent().unwrap();
-                let window_ref = widget.downcast_ref::<gtk::ApplicationWindow>().unwrap();
-
                 let mut title: String = "FEX: ".to_owned();
                 let opath: String = app_accept.image_paths[0].to_str().unwrap().to_string();
                 title.push_str(&opath);
-                window_ref.set_title(&title);
-                window_ref.show_all();
+                win_accept.set_title(&title);
+                win_accept.show_all();
             });
 
             hbox.add(&button_accept);
