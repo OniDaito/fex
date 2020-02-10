@@ -107,25 +107,25 @@ fn get_image_fits(path : &Path ) -> gtk::Image {
         }
     }
 
-       // Find min/max
-       let mut minp : f32 = 1e12; // we might end up overflowing!
-       let mut maxp : f32 = 0.0;
-       for y in 0..HEIGHT as usize {
-           for x in 0..WIDTH as usize {
-               if (img_buffer[y][x] as f32) > maxp { maxp = img_buffer[y][x] as f32; }
-               if (img_buffer[y][x] as f32) < minp { minp = img_buffer[y][x] as f32; }
-           }
-       }
+    // Find min/max
+    let mut minp : f32 = 1e12; // we might end up overflowing!
+    let mut maxp : f32 = 0.0;
+    for y in 0..HEIGHT as usize {
+        for x in 0..WIDTH as usize {
+            if (img_buffer[y][x] as f32) > maxp { maxp = img_buffer[y][x] as f32; }
+            if (img_buffer[y][x] as f32) < minp { minp = img_buffer[y][x] as f32; }
+        }
+    }
 
-       for y in 0..HEIGHT as usize {
-           for x in 0..WIDTH as usize {
-               let colour = (img_buffer[y][x] / maxp * 255.0) as u8;
-               let idx = (y * (HEIGHT as usize) + x) * 3;
-               final_buffer[idx] = colour;
-               final_buffer[idx+1] = colour;
-               final_buffer[idx+2] = colour;
-           }
-       } 
+    for y in 0..HEIGHT as usize {
+        for x in 0..WIDTH as usize {
+            let colour = (img_buffer[y][x] / maxp * 255.0) as u8;
+            let idx = (y * (HEIGHT as usize) + x) * 3;
+            final_buffer[idx] = colour;
+            final_buffer[idx+1] = colour;
+            final_buffer[idx+2] = colour;
+        }
+    } 
    
     
 
@@ -272,6 +272,19 @@ pub fn copy_buffer(in_buff : &Vec<Vec<f32>>, out_buff : &mut Vec<Vec<f32>>) {
     }
 }
 
+fn get_image(path : &Path) -> gtk::Image {
+    let dummy : gtk::Image = gtk::Image::new();
+    if path.extension().unwrap() == "fits" {
+        let image = get_image_fits(path);
+        return image;
+    } else if path.extension().unwrap() == "tif" ||
+        path.extension().unwrap() == "tiff" {
+        let image = get_image_tiff(path);
+        return image;
+    }
+    dummy
+}
+
 
 // Our chooser struct/class implementation. Mostly just runs the GTK
 // and keeps a hold on our models.
@@ -318,9 +331,7 @@ impl Explorer {
             let vbox = gtk::Box::new(gtk::Orientation::Vertical, 3);
             let ibox = gtk::Box::new(gtk::Orientation::Horizontal, 1);
             let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 3);
-                        
-            let image = get_image_fits(&(app.image_paths[0]));
-            
+            let image = get_image(&(app.image_paths[0]));
             ibox.add(&image);
             vbox.add(&ibox);
             vbox.add(&hbox);
@@ -348,10 +359,9 @@ impl Explorer {
                 let ibox_ref = ibox_accept.lock().unwrap();
                 let children : Vec<gtk::Widget> = (*ibox_ref).get_children();
                 app_accept.image_index.set(mi + 1);
-                let image = get_image_fits(&(app_accept.image_paths[mi + 1]));
-
+                let image = get_image(&(app_accept.image_paths[0]));
                 (*ibox_ref).remove(&children[0]);
-                (*ibox_ref).add(&image);
+                (*ibox_ref).add(&image);        
                 let window_ref = (*ibox_ref).get_parent().unwrap();
                 window_ref.show_all();
             });
