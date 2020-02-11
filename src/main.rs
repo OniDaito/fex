@@ -50,7 +50,7 @@ pub struct Explorer {
 }
 
 // Open a fits image, returing a gtk::Image and the width and height
-fn get_image_fits(path : &Path ) -> (gtk::Image, usize, usize) {
+fn get_image_fits(path : &Path ) -> (gtk::Image, usize, usize, f32, f32) {
     let fits = Fits::open(path).expect("Failed to open fits.");
     let mut img_buffer : Vec<Vec<f32>> = vec![];
     let mut width : usize = 0;
@@ -132,12 +132,12 @@ fn get_image_fits(path : &Path ) -> (gtk::Image, usize, usize) {
     );
 
     let image : gtk::Image = gtk::Image::new_from_pixbuf(Some(&pixybuf));
-    return (image, width, height);
+    return (image, width, height, minp, maxp);
 }
 
 // Convert our model into a gtk::Image that we can present to
 // the screen.
-fn get_image_tiff(path : &Path) -> (gtk::Image, usize, usize) {
+fn get_image_tiff(path : &Path) -> (gtk::Image, usize, usize, f32, f32) {
     let img_file = File::open(path).expect("Cannot find test image!");
     let mut decoder = Decoder::new(img_file).expect("Cannot create decoder");
 
@@ -237,14 +237,14 @@ fn get_image_tiff(path : &Path) -> (gtk::Image, usize, usize) {
         );
 
         let image : gtk::Image = gtk::Image::new_from_pixbuf(Some(&pixybuf));
-        return (image, width, height);
+        return (image, width, height, minp, maxp);
 
     } else {
         panic!("Wrong data type");
     }
 
     let image: gtk::Image = gtk::Image::new();
-    (image, width, height)
+    (image, width, height, 0.0, 0.0)
 }
 
 // Basic naive buffer copying program.
@@ -258,17 +258,18 @@ pub fn copy_buffer(in_buff : &Vec<Vec<f32>>, out_buff : &mut Vec<Vec<f32>>,
 }
 
 // Wrapper around the get_image_*  functions depending on the image extension.
-fn get_image(path : &Path) -> (gtk::Image, usize, usize) {
+// TODO - this could be neater
+fn get_image(path : &Path) -> (gtk::Image, usize, usize, f32, f32) {
     let dummy : gtk::Image = gtk::Image::new();
     if path.extension().unwrap() == "fits" {
-        let (image, width, height) = get_image_fits(path);
-        return (image, width, height);
+        let (image, width, height, mini, maxi) = get_image_fits(path);
+        return (image, width, height, mini, maxi);
     } else if path.extension().unwrap() == "tif" ||
         path.extension().unwrap() == "tiff" {
-        let (image, width, height) = get_image_tiff(path);
-        return (image, width, height);
+        let (image, width, height, mini, maxi) = get_image_tiff(path);
+        return (image, width, height, mini, maxi);
     }
-    (dummy, 0, 0)
+    (dummy, 0, 0, 0.0, 0.0)
 }
 
 // Our Explorer struct/class implementation. Mostly just runs the GTK
@@ -319,11 +320,14 @@ impl Explorer {
             let dbox = gtk::Box::new(gtk::Orientation::Vertical, 3);
             let ibox = gtk::Box::new(gtk::Orientation::Horizontal, 2);
             let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 3);
-            let (image, width, height) = get_image(&(app.image_paths[0]));
+            let (image, width, height, mini, maxi) = get_image(&(app.image_paths[0]));
             ibox.add(&image);
             let dimstr = format!("width/height: {}x{}", width, height); 
             let label = Label::new(Some(&dimstr));
             dbox.add(&label);
+            let dimstr = format!("min/max: {}x{}", mini, maxi); 
+            let label2 = Label::new(Some(&dimstr));
+            dbox.add(&label2);
             ibox.add(&dbox);
             vbox.add(&ibox);
             vbox.add(&hbox);
@@ -350,7 +354,7 @@ impl Explorer {
                 // Now move on to the next image
                 let ibox_ref = ibox_accept.lock().unwrap();
                 let children : Vec<gtk::Widget> = (*ibox_ref).get_children();
-                let (image, width, height) = get_image(&(app_accept.image_paths[mi + 1]));
+                let (image, width, height, mini, maxi) = get_image(&(app_accept.image_paths[mi + 1]));
                 for i in 0..children.len() {
                     (*ibox_ref).remove(&children[i]);
                 }
@@ -359,6 +363,9 @@ impl Explorer {
                 let dimstr = format!("width/height: {}x{}", width, height); 
                 let label = Label::new(Some(&dimstr));
                 dbox.add(&label);
+                let dimstr = format!("min/max: {}x{}", mini, maxi); 
+                let label2 = Label::new(Some(&dimstr));
+                dbox.add(&label2);
                 (*ibox_ref).add(&image);
                 (*ibox_ref).add(&dbox);
                 let mut title: String = "FEX: ".to_owned();
