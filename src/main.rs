@@ -400,8 +400,13 @@ fn main() {
     let mut image_files : Vec<PathBuf> = vec!();
     
     if args.len() < 2 {
-        println!("Usage: explorer <path to directory of tiff / fits files>"); 
+        println!("Usage: explorer <path to directory of tiff / fits files> <OPTIONAL filter>"); 
         process::exit(1);
+    }
+
+    let mut filter : String = String::new();
+    if args.len() == 3 {
+        filter.push_str(&args[2]);
     }
 
     let paths = fs::read_dir(Path::new(&args[1])).unwrap();
@@ -411,7 +416,7 @@ fn main() {
             Ok(file) => {
                 let filename = file.file_name();
                 let tx = filename.to_str().unwrap();
-                if tx.contains("tif") || tx.contains("fits") {
+                if (tx.contains("tif") || tx.contains("fits")) && tx.contains(filter.as_str()) {
                     println!("Found tiff / fits: {}", tx);
 
                     let mut owned_string: String = args[1].to_owned();
